@@ -1,42 +1,30 @@
 ;************************************************
+;LOAD FUNCTIONS
+;************************************************
+
+load "read_st4_data.ncl"
+
+;************************************************
 ;READ DATA
 ;************************************************
 
-dir = "dec2015" ;Directory where data files are stored
-files = systemfunc("cd "+dir+" ; ls ST4.201512*.06h") ;List files to use
-num_files = dimsizes(files)
-
-files = str_insert(files, ".grb", -1) ;Append .grb to each file name
-
-all_files = addfiles("./"+dir+"/"+files, "r") ;Open the files for reading using addfiles
-ListSetType(all_files, "join") ;Specify "join" mode to read variables arcross files
-
-p_acc = all_files[:]->A_PCP_GDS5_SFC_acc6h ;Extract the data in "join" mode
-
-p_acc := dim_sum_n_Wrap(p_acc, 0) ;Reassign p_acc to be the accumulated precip across all files
-;printVarSummary(p_acc)
-;printMinMax(p_acc,0)
-
-p_acc = p_acc/25.4 ;Convert from mm to inches
-
-lat2d = all_files[0]->g5_lat_0 ;Extract the latitude coordinate array
-lon2d = all_files[0]->g5_lon_1 ;Extract the longitude coordinate array
-
-p_acc@lat2d = lat2d ;Assign the latitude coordinate array to the lat2d attribute
-p_acc@lon2d = lon2d ;Assign the longitude coordinate array to the lon2d attribute
+p2010 = read_st4_data("201005")
+p2015 = read_st4_data("201512")
 
 ;************************************************
 ;CREATE PLOT
 ;************************************************
 
-wks = gsn_open_wks("x11", "st4_2015") ;Open a workstation
+wks = gsn_open_wks("x11", "st4") ;Open a workstation
+gsn_define_colormap(wks, "colormap_precip_16levs") ;Set the workstation colormap
 
 res                 = True ;Set resources
 
 ;GSN resources
-res@gsnMaximize     = True ;Maximize the plot in the workstation
+;res@gsnMaximize     = True ;Maximize the plot in the workstation
+res@gsnDraw         = False ;Do not draw
+res@gsnFrame        = False ;Do not advance frame
 res@gsnAddCyclic    = False ;Set to false for non-global data
-res@gsnLeftString   = "48-h accum. precip. (in) ending 0000 UTC 03 May 2010" ;Set left string
 res@gsnRightString  = "" ;No right string
 
 ;Contour resources
@@ -45,14 +33,13 @@ res@cnLinesOn             = False ;No contour lines
 res@cnLineLabelsOn        = False ;No line labels
 res@cnInfoLabelOn         = False ;No contour range label
 res@cnLevelSelectionMode  = "ExplicitLevels" ;User-defined contour levels
-res@cnLevels              = fspan(1.0, 15.0, 15) ;Specify the contour levels in INCHES
-;res@cnLevels              = fspan(25.0, 225.0, 17) ;Specify the contour levels in MILLIMETERS
+res@cnLevels              = fspan(1.0, 16.0, 16) ;Specify the contour levels in INCHES
 res@cnFillMode            = "AreaFill" ;Set to "CellFill" for quickest plotting"
 ;res@cnMissingValFillColor = "grey" ;Show regions with missing values as grey
-;rgba_partial = span_color_rgba(color_map_name,nlevels)
-res@cnFillPalette         = span_color_rgba("WhiteBlueGreenYellowRed", 16)
 ;res@cnFillPalette         = "WhiteBlueGreenYellowRed" ;Specify the color palette
-;res@cnFillPalette         = "bosart_stageIV"
+
+;Label bar resources
+res@lbLabelBarOn = False ;Turn off individual label bars
 
 ;Tickmarck resources
 res@pmTickMarkDisplayMode = "Always" ;Turn on tickmarks
@@ -60,11 +47,7 @@ res@pmTickMarkDisplayMode = "Always" ;Turn on tickmarks
 ;Map resources
 res@mpDataBaseVersion     = "MediumRes"
 res@mpOutlineBoundarySets = "GeophysicalAndUSStates"
-
 res@mpProjection          = "Mercator"
-;res@mpLambertParallel1F   = 33.0 ;For "LambertConformal" projection only
-;res@mpLambertParallel2F   = 45.0
-;res@mpLambertMeridianF    = -87.0
 res@mpLimitMode           = "LatLon"
 res@mpMinLatF             = 29
 res@mpMaxLatF             = 39
@@ -72,10 +55,22 @@ res@mpMinLonF             = -94
 res@mpMaxLonF             = -80
 res@mpFillOn              = False ;No land fill
 
-res@mpGridAndLimbOn       = True ;Draw grid lines
-res@mpGridLatSpacingF     = 2
-res@mpGridLonSpacingF     = 2
-res@mpGridLineColor       = "lightgrey"
-res@mpGridLineDashPattern = 6 ;Choose the grid line pattern (https://www.ncl.ucar.edu/Document/Graphics/Images/dashpatterns.png)
+;res@mpGridAndLimbOn       = True ;Draw grid lines
+;res@mpGridLatSpacingF     = 2
+;res@mpGridLonSpacingF     = 2
+;res@mpGridLineColor       = "lightgrey"
+;res@mpGridLineDashPattern = 6 ;Choose the grid line pattern (https://www.ncl.ucar.edu/Document/Graphics/Images/dashpatterns.png)
 
-plot = gsn_csm_contour_map(wks, p_acc(:,:), res)
+plot = new(2, graphic) ;Assign a new graphic variable of length 2
+
+res@gsnLeftString   = "48-h accum. precip. (in) ending 0000 UTC 03 May 2010" ;Set left string
+plot(0) = gsn_csm_contour_map(wks, p2010(:,:), res)
+
+res@gsnLeftString   = "168-h accum. precip. (in) ending 0000 UTC 29 Dec 2015" ;Set left string
+plot(1) = gsn_csm_contour_map(wks, p2015(:,:), res)
+
+;Set resources for the panel plot
+resP                  = True
+resP@gsnPanelLabelBar = True ;Add a common colorbar
+
+gsn_panel(wks, plot, (/1,2/), resP) ;Draw a 1 row, 2 column panel plot
