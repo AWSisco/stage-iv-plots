@@ -72,5 +72,6 @@ plot(1) = gsn_csm_contour_map(wks, p2015(:,:), res)
 ;Set resources for the panel plot
 resP                  = True
 resP@gsnPanelLabelBar = True ;Add a common colorbar
+resP@pmLabelBarWidthF = 0.8
 
 gsn_panel(wks, plot, (/1,2/), resP) ;Draw a 1 row, 2 column panel plot
